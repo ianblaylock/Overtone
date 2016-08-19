@@ -1,4 +1,4 @@
-(ns splat)
+(ns basic.core)
 
 (import '(java.nio ByteBuffer ByteOrder))
 (import '(java.nio.file Files Path))
@@ -17,11 +17,12 @@
 (import '(javax.swing.event ChangeListener DocumentListener))
 (import '(java.awt.image BufferedImage VolatileImage))
 
+
 (def image
      (let [ge (GraphicsEnvironment/getLocalGraphicsEnvironment)
 	   gc (.getDefaultConfiguration (.getDefaultScreenDevice ge))
 	   [x-dim y-dim] [1200 675]
-	   img (doto (.createCompatibleVolatileImage gc x-dim y-dim)
+           img (doto (.createCompatibleVolatileImage gc x-dim y-dim)
 		 (.setAccelerationPriority 1.0))]
        img))
 
@@ -36,39 +37,15 @@
 	 (.setVisible true))))
 
 (defn paint-bright-rect
-  [corner i max-i]
-  {:pre [(#{:ne :nw :sw :se} corner)
-	 (<= i max-i)]}
-  (let [g (.createGraphics image)  	
-
-	[w h] (map #(* (/ (- max-i i) max-i) %)
-		   (map #(-> image bean %) [:width :height]))
-	x (cond (#{:nw :sw} corner) 0
-		(#{:ne :se} corner) (- (.getWidth image) w) :else nil)
-	y (cond (#{:nw :ne} corner) 0
-		(#{:sw :se} corner) (- (.getHeight image) h) :else nil)]
-    (.setPaint g (Color. (Color/HSBtoRGB (rand) 1.0 1.0)))
+  [x y w h sat bri]
+  (let [g (.createGraphics image)]
+    (.setPaint g (Color. (Color/HSBtoRGB (rand) (double sat) (- 1 (* (rand) bri)))))
     (.fillRect g x y w h)
     (.dispose g)))
 
-(defn- vis-patterns
-  [num sleep-time max-i]
-  (case num
-	0 (let [corner (rand-nth [:nw :ne :se :sw])]
-	    (dotimes [i max-i]
-	      (paint-bright-rect corner  i max-i)
-	      (.repaint image-label)
-	      (Thread/sleep sleep-time)))
-	1 (dotimes [i (* 0.5 max-i)]
-	    (doseq [corner [:nw :ne :se :sw]]
-	      (paint-bright-rect corner (+ i (* 0.5 max-i)) max-i))
-	    (.repaint image-label)
-	    (Thread/sleep sleep-time))
-	nil))
-
     
 (defn- paint-splat
-  [w h x-offset y-offset]
+  [w h x-offset y-offset sat bri rad-mult]
   (let [points (atom [])
 	control-points (atom [])
 	path (Path2D$Double.)
@@ -77,7 +54,7 @@
       (let [next-theta (+ theta (+ 10 (* 30 (rand))))
 	    x0 (+ x-offset (* 0.5 w))
 	    y0 (+ y-offset (* 0.5 h))
-	    radius (* (+ 0.7 (* 0.3 (rand))) (* 0.25 (+ w h)))
+            radius (* 0.25 rad-mult (+ w h))
 	    x (+ x0 (* radius (Math/cos (* (/ Math/PI 180) theta))))
 	    y (+ y0 (* radius (Math/sin (* (/ Math/PI 180) theta))))
 	    rad2 (* radius (+ 0.2 (* (rand) 0.6)))
@@ -91,9 +68,9 @@
     (.moveTo path (-> @points first first) (-> @points first second))
     (doseq [[[x y] [cx cy]] (partition 2 (interleave (rest @points) @control-points))]
       (.quadTo path cx cy x y))
-    (.setPaint g (Color. (Color/HSBtoRGB (rand) 1.0 1.0)))
+    (.setPaint g (Color. (Color/HSBtoRGB (rand) (double sat) (- 1 (* (rand) bri)))))
     (.fill g path)
-    (.setPaint g (Color. (Color/HSBtoRGB (rand) 1.0 1.0)))
+    (.setPaint g (Color. (Color/HSBtoRGB (rand) (double sat) (- 1 (* (rand) bri)))))
     (.setStroke g (BasicStroke. 7))
     (.draw g path)
     (.repaint image-label)
